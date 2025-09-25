@@ -155,15 +155,13 @@
         }
 
         #chat-form {
-            z-index: 3;
-            position: sticky;
-            width: 100%;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            /* background-color: #e3ecf1; */
-            border-radius: 15px;
-            padding: 8px;
+            z-index: 10000; /* High z-index to avoid overlaps */
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    left: 0;
+    right: 0;
+    pointer-events: auto;
         }
 
         @media (max-width: 767px) {
@@ -210,6 +208,9 @@
 
         #user-input {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10000; /* Ensure it's above other elements */
+            pointer-events: auto; /* Ensure it can receive clicks */
+            position: relative; /* Ensure proper stacking */
         }
 
         .user-message {
@@ -1045,55 +1046,65 @@
         let urlLinksText = urlLinks.map(link => `URL Link: ${link}`).join('\n');
 
         async function fetchGPTResponse(prompt) {
-            const headers = {
-                "Content-Type": "application/json"
-            };
-
-            const requestBody = {
-                model: 'gemini-2.5-flash',
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: prompt + systemPrompt + promptLimit + '\n\n' + pdfLinksText + '\n\n' + urlLinksText + '\n\n' }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 500,
-                    topP: 0.8,
-                    topK: 40
-                },
-                safetySettings: [
-                    {
-                        category: "HARM_CATEGORY_HARASSMENT",
-                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                    },
-                    {
-                        category: "HARM_CATEGORY_HATE_SPEECH",
-                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                    }
-                ]
-            };
-
-            try {
-                const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify(requestBody),
-                });
-
-                if (!response.ok) {
-                    const errorResponse = await response.json();
-                    console.error("Gemini API Error:", errorResponse);
-                    throw new Error("Gemini API Error");
-                }
-
-                const jsonResponse = await response.json();
-                const textResponse = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
-                return textResponse;
-            } catch (error) {
-                console.error("Error fetching Gemini response:", error);
-                return "ERROR! Please check Gemini API settings.";
-            }
+    const userInputElement = document.getElementById("user-input");
+    userInputElement.disabled = true; // Disable input during API call
+    try {
+        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+        });
+        console.log("API Response Status:", response.status);
+        if (!response.ok) {
+            const errorResponse = await response.json();
+            console.error("Gemini API Error:", JSON.stringify(errorResponse, null, 2));
+            throw new Error("Gemini API Error");
         }
+        const jsonResponse = await response.json();
+        return jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
+    } catch (error) {
+        console.error("Error fetching Gemini response:", error.message);
+        return "ERROR! Please check your network or API settings.";
+    } finally {
+        userInputElement.disabled = false; // Always re-enable input
+        userInputElement.focus(); // Optional: Focus the input
+    }
+}
+
+async function appendMessage(text, sender) {
+    const userInputElement = document.getElementById("user-input");
+    const decodedText = decodeHTMLEntities(text);
+    const message = document.createElement("div");
+    const now = new Date();
+    const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+    const timeSpan = document.createElement("div");
+    timeSpan.style.fontSize = '10px';
+    timeSpan.style.color = '#888';
+    timeSpan.textContent = timestamp;
+
+    message.className = sender === "user" ? "user-message" : "chatbot-message";
+    const messageText = document.createElement("span");
+    messageText.className = "message-text";
+
+    try {
+        if (sender === "chatbot") {
+            await speak(text, messageText);
+        } else {
+            await typeWriter(messageText, decodedText);
+        }
+    } catch (error) {
+        console.error("Error in appendMessage:", error);
+        await typeWriter(messageText, decodedText); // Fallback to text display
+    } finally {
+        userInputElement.disabled = false; // Ensure input is re-enabled
+        userInputElement.focus(); // Optional: Focus the input
+    }
+
+    message.appendChild(messageText);
+    message.appendChild(timeSpan);
+    chatBox.insertBefore(message, chatBox.firstChild);
+    chatBox.scrollTop = 0;
+}
 
         async function typeWriter(element, text, delay = 50) {
             shouldContinueTyping = true; // Reset the flag before starting typing
