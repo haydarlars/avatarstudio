@@ -1392,40 +1392,85 @@
         }
 
         // Modify the JavaScript code to append new messages at the top of the chat box
-        async function appendMessage(text, sender) {
-            const decodedText = decodeHTMLEntities(text);
-            const message = document.createElement("div");
-            const now = new Date();
-            const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
-            const timeSpan = document.createElement("div");
-            timeSpan.style.fontSize = '10px';
-            timeSpan.style.color = '#888';
-            timeSpan.textContent = timestamp;
-
-            if (sender === "user") {
-                message.className = "user-message"; // Apply the user message class
-            } else if (sender === "chatbot") {
-                message.className = "chatbot-message"; // Apply the chatbot message class
+        async function fetchGPTResponse(prompt) {
+    const headers = {
+        "Content-Type": "application/json"
+    };
+    const requestBody = {
+        model: 'gemini-2.5-flash',
+        contents: [{
+            role: 'user',
+            parts: [{ text: prompt + systemPrompt + promptLimit + '\n\n' + pdfLinksText + '\n\n' + urlLinksText + '\n\n' }]
+        }],
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500,
+            topP: 0.8,
+            topK: 40
+        },
+        safetySettings: [
+            {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                category: "HARM_CATEGORY_HATE_SPEECH",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
             }
+        ]
+    };
 
-            const messageText = document.createElement("span");
-            messageText.className = "message-text"; // Apply the common message text class
-
-            if (sender === "chatbot") {
-                await speak(text, messageText);
-            } else {
-                await typeWriter(messageText, text);
-            }
-
-            message.appendChild(messageText);
-            message.appendChild(timeSpan);
-
-            // Prepend the new message to the top of the chat box
-            chatBox.insertBefore(message, chatBox.firstChild);
-
-            // Scroll to the top of the chat box
-            chatBox.scrollTop = 0;
+    try {
+        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(requestBody),
+        });
+        console.log("API Response Status:", response.status);
+        if (!response.ok) {
+            const errorResponse = await response.json();
+            console.error("Gemini API Error:", JSON.stringify(errorResponse, null, 2));
+            throw new Error("Gemini API Error");
         }
+        const jsonResponse = await response.json();
+        console.log("API Response:", JSON.stringify(jsonResponse, null, 2));
+        return jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
+    } catch (error) {
+        console.error("Error fetching Gemini response:", error.message);
+        return "ERROR! Please check your network or API settings.";
+    }
+}
+
+async function appendMessage(text, sender) {
+    const decodedText = decodeHTMLEntities(text);
+    const message = document.createElement("div");
+    const now = new Date();
+    const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+    const timeSpan = document.createElement("div");
+    timeSpan.style.fontSize = '10px';
+    timeSpan.style.color = '#888';
+    timeSpan.textContent = timestamp;
+
+    message.className = sender === "user" ? "user-message" : "chatbot-message";
+    const messageText = document.createElement("span");
+    messageText.className = "message-text";
+
+    try {
+        if (sender === "chatbot") {
+            await speak(text, messageText);
+        } else {
+            await typeWriter(messageText, decodedText);
+        }
+    } catch (error) {
+        console.error("Error in appendMessage:", error);
+        await typeWriter(messageText, decodedText); // Fallback to text display
+    }
+
+    message.appendChild(messageText);
+    message.appendChild(timeSpan);
+    chatBox.insertBefore(message, chatBox.firstChild);
+    chatBox.scrollTop = 0;
+}
 
 
         let isPaused = false;
