@@ -914,26 +914,34 @@ if (!SpeechRecognition) {
         // }
         // });
         microphoneBtn.addEventListener("click", () => {
-            // Check microphone permission using Permissions API
-            if (navigator.permissions) {
-                navigator.permissions.query({ name: 'microphone' }).then((result) => {
-                    if (result.state === 'granted') {
-                        recognition.start();
-                    } else if (result.state === 'prompt') {
-                        // Start recognition — will trigger browser prompt
-                        recognition.start();
-                    } else if (result.state === 'denied') {
-                        alert("❌ Microphone access is blocked.\n\nPlease allow access in your browser settings:\nChrome: 🔒 icon > Site settings > Microphone: Allow\nSafari: Settings > Website Settings > Microphone");
-                    }
-                }).catch((error) => {
-                    console.warn("Permissions API not supported or error:", error);
-                    recognition.start(); // Fallback for browsers that don't support Permissions API
-                });
-            } else {
-                // If Permissions API is not available, just try to start
+    if (navigator.permissions) {
+        navigator.permissions.query({ name: 'microphone' }).then((result) => {
+            if (result.state === 'granted' || result.state === 'prompt') {
                 recognition.start();
+            } else {
+                alert("Microphone access denied. Please enable it in your device settings.");
             }
+        }).catch(() => {
+            recognition.start(); // Fallback for unsupported Permissions API
         });
+    } else {
+        recognition.start();
+    }
+});
+
+recognition.addEventListener("result", (event) => {
+    const speechResult = event.results[0][0].transcript.trim();
+    const userInputElement = document.getElementById("user-input");
+    userInputElement.value = speechResult;
+    userInputElement.focus(); // Return focus to input
+    document.getElementById("chat-form").dispatchEvent(new Event("submit"));
+});
+
+recognition.addEventListener("end", () => {
+    const userInputElement = document.getElementById("user-input");
+    userInputElement.disabled = false; // Ensure input is enabled
+    userInputElement.focus(); // Return focus to input
+});
 
         // Handle speech result
         recognition.addEventListener("result", (event) => {
@@ -967,14 +975,16 @@ if (!SpeechRecognition) {
 
         // Command To Action	
         window.addEventListener("keydown", (event) => {
-            if (event.key === "ArrowDown") {
-                // Stop TTS when Up arrow key is pressed
-                stopTTS();
-            } else if (event.key === "ArrowUp") {
-                // Start ASR when Down arrow key is pressed
-                recognition.start();
-            }
-        });
+    const userInputElement = document.getElementById("user-input");
+    if (document.activeElement === userInputElement) {
+        return; // Skip keydown handling if typing in the input field
+    }
+    if (event.key === "ArrowDown") {
+        stopTTS();
+    } else if (event.key === "ArrowUp") {
+        recognition.start();
+    }
+});
 
         recognition.addEventListener("result", (event) => {
             const speechResult = event.results[0][0].transcript.trim();
@@ -1141,6 +1151,7 @@ async function appendMessage(text, sender) {
 
         async function speak(text, element, delay = 50) {
             // Add these lines to detect the language of the input text
+            
             const language = await detectLanguage(text);
             const synth = window.speechSynthesis;
 
