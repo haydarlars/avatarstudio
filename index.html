@@ -699,6 +699,7 @@
         const chatBox = document.getElementById("chat-box");
         const chatForm = document.getElementById("chat-form");
         const microphoneBtn = document.getElementById("microphone-btn");
+        const userInputElement = document.getElementById("user-input");
 
         let conversationHistory = [{ role: "assistant", content: "You are Prime the Digital AI Assistant. You are Professional." }];
 
@@ -709,6 +710,7 @@
             const userInput = userInputElement.value;
             appendMessage(userInput, "user");
             chatForm.reset();
+            userInputElement.disabled = true;
 
             // Disable the user input field
             userInputElement.disabled = true;
@@ -716,18 +718,16 @@
             //conversationHistory.push({ role: "user", content: userInput });
 
             try {
-                const response = await fetchGPTResponse(userInput);
-                appendMessage(response, "chatbot");
-                //conversationHistory.push({ role: "assistant", content: response });
-            } catch (error) {
-                console.error("Error fetching response:", error);
-                appendMessage("Sorry, there was an error getting the response. Please try again.", "chatbot");
-            } finally {
-                // Enable the user input field
-                // userInputElement.disabled = false;
-                // userInputElement.focus(); // Optionally focus the input field
-            }
-        });
+        const response = await fetchGPTResponse(userInput);
+        appendMessage(response, "chatbot");
+    } catch (error) {
+        console.error("Error fetching response:", error);
+        appendMessage("Sorry, there was an error. Please try again.", "chatbot");
+    } finally {
+        userInputElement.disabled = false;
+        userInputElement.focus();
+    }
+});
 
         // // Speech Recognition
         // const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1465,6 +1465,9 @@ async function appendMessage(text, sender) {
     } catch (error) {
         console.error("Error fetching Gemini response:", error.message);
         return "ERROR! Please check your network or API settings.";
+    }   finally {
+        userInputElement.disabled = false;
+        userInputElement.focus();
     }
 }
 
@@ -1491,6 +1494,9 @@ async function appendMessage(text, sender) {
     } catch (error) {
         console.error("Error in appendMessage:", error);
         await typeWriter(messageText, decodedText); // Fallback to text display
+    }   finally {
+        userInputElement.disabled = false;
+        userInputElement.focus();
     }
 
     message.appendChild(messageText);
