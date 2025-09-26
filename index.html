@@ -194,7 +194,7 @@
             left: 0;
             right: 0;
         }
-        }
+        
 
         .chat-message {
             padding: 10px;
@@ -758,7 +758,12 @@
         // });
 
         const synth = window.speechSynthesis;
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+    console.error("SpeechRecognition not supported in this environment.");
+    // Fallback: Disable microphone button or show a message
+    document.getElementById("microphone-btn").disabled = true;
+}
         const recognition = new SpeechRecognition();
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
