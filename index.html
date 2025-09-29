@@ -1187,6 +1187,15 @@ async function appendMessage(text, sender) {
             return;
         }
 
+        audioElement.play().catch(err => {
+    console.error("Audio autoplay error:", err);
+    document.getElementById("tts-indicator").style.display = "none";
+    showIdleVideo();
+    element.innerHTML = correctedChunk; // Display text if audio fails
+    currentChunkIndex++;
+    speakChunk();
+});
+
         const correctedChunk = textChunks[currentChunkIndex]
             .replace(/&#x27;/g, "'")
             .replace(/&quot;/g, "'")
@@ -1280,13 +1289,12 @@ await audioElement.play();
             // Fallback to speechSynthesis
             try {
     const synth = window.speechSynthesis;
-    if (!synth) throw new Error("speechSynthesis not supported");
-
+    if (!synth) throw new Error("SpeechSynthesis not supported");
     const voices = synth.getVoices();
+    console.log("Available voices:", voices.map(v => `${v.name} (${v.lang})`));
     const selectedVoice = voices.find(v => v.lang.startsWith(language)) || voices[0];
-
     if (!selectedVoice) {
-        console.warn("No suitable voice found, displaying text only");
+        console.warn("No suitable voice found, falling back to typeWriter");
         await typeWriter(element, correctedChunk, 50);
         currentChunkIndex++;
         speakChunk();
@@ -1487,9 +1495,10 @@ async function appendMessage(text, sender) {
 }
 
         function showTalkVideo() {
-            syncAndFade(idleVideo, talkVideo);
-            talkVideo.play().catch(() => { });
-        }
+    console.log("Attempting to show talk video");
+    syncAndFade(idleVideo, talkVideo);
+    talkVideo.play().catch(err => console.error("Talk video playback error:", err));
+}
 
         function showIdleVideo() {
             syncAndFade(talkVideo, idleVideo);
