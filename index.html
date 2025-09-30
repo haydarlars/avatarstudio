@@ -702,22 +702,21 @@
         const userInputElement = document.getElementById("user-input");
 
         let conversationHistory = [{ role: "assistant", content: "You are Prime the Digital AI Assistant. You are Professional." }];
+let isSubmitting = false;
+chatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (isSubmitting) return; // Prevent multiple submissions
+    isSubmitting = true;
+    const userInput = userInputElement.value.trim();
+    if (!userInput) {
+        isSubmitting = false;
+        return;
+    }
+    appendMessage(userInput, "user");
+    chatForm.reset();
+    userInputElement.disabled = true;
 
-        // Handles form submission and sends user input to the chatbot
-        chatForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const userInputElement = document.getElementById("user-input");
-            const userInput = userInputElement.value;
-            appendMessage(userInput, "user");
-            chatForm.reset();
-            userInputElement.disabled = true;
-
-            // Disable the user input field
-            userInputElement.disabled = true;
-
-            //conversationHistory.push({ role: "user", content: userInput });
-
-            try {
+    try {
         const response = await fetchGPTResponse(userInput);
         appendMessage(response, "chatbot");
     } catch (error) {
@@ -726,6 +725,7 @@
     } finally {
         userInputElement.disabled = false;
         userInputElement.focus();
+        isSubmitting = false;
     }
 });
 
@@ -914,6 +914,7 @@ if (!SpeechRecognition) {
         // }
         // });
         microphoneBtn.addEventListener("click", () => {
+    recognition.stop(); // Stop any ongoing recognition
     if (navigator.permissions) {
         navigator.permissions.query({ name: 'microphone' }).then((result) => {
             if (result.state === 'granted' || result.state === 'prompt') {
@@ -922,7 +923,7 @@ if (!SpeechRecognition) {
                 alert("Microphone access denied. Please enable it in your device settings.");
             }
         }).catch(() => {
-            recognition.start(); // Fallback for unsupported Permissions API
+            recognition.start();
         });
     } else {
         recognition.start();
@@ -938,9 +939,9 @@ recognition.addEventListener("result", (event) => {
 });
 
 recognition.addEventListener("end", () => {
-    const userInputElement = document.getElementById("user-input");
-    userInputElement.disabled = false; // Ensure input is enabled
-    userInputElement.focus(); // Return focus to input
+    recognition.stop(); // Ensure recognition is fully stopped
+    userInputElement.disabled = false;
+    userInputElement.focus();
 });
 
         // Handle speech result
@@ -958,6 +959,7 @@ recognition.addEventListener("end", () => {
                 console.error("SpeechRecognition error:", event.error);
             }
         });
+
 
         // Add a stop TTS function
         function stopTTS() {
@@ -987,19 +989,17 @@ recognition.addEventListener("end", () => {
 });
 
         recognition.addEventListener("result", (event) => {
-            const speechResult = event.results[0][0].transcript.trim();
-            const lower = speechResult.toLowerCase();
-
-            // If user said “stop”, interrupt TTS …
-            if (lower === "stop") {
-                stopTTS();
-                return;
-            }
-
-            // Otherwise, feed it into the chat form
-            //   document.getElementById("user-input").value = speechResult;
-            //   document.getElementById("chat-form").dispatchEvent(new Event("submit"));
-        });
+    const speechResult = event.results[0][0].transcript.trim();
+    const lower = speechResult.toLowerCase();
+    if (lower === "stop") {
+        stopTTS();
+        return;
+    }
+    // Clear existing input to prevent duplication
+    userInputElement.value = speechResult;
+    userInputElement.focus();
+    document.getElementById("chat-form").dispatchEvent(new Event("submit"));
+});
 
         // Bind the stop TTS function to a button
         const stopTTSBtn = document.getElementById("stop-tts-btn");
